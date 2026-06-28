@@ -1,0 +1,69 @@
+import mongoose from "mongoose";
+import { PUBLIC_SITE_KEYS } from "@/lib/publicSite";
+
+const HotelTableReservationSchema = new mongoose.Schema(
+  {
+    siteKey: {
+      type: String,
+      enum: [PUBLIC_SITE_KEYS.HOTEL],
+      default: PUBLIC_SITE_KEYS.HOTEL,
+    },
+    guestName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    email: {
+      type: String,
+      required: true,
+      trim: true,
+      lowercase: true,
+    },
+    phone: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    reservationDate: {
+      type: Date,
+      required: true,
+    },
+    reservationTime: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    partySize: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+    areaPreference: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    occasion: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    specialRequests: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    status: {
+      type: String,
+      enum: ["requested", "confirmed", "cancelled", "completed"],
+      default: "requested",
+    },
+    cancelledAt: {
+      type: Date,
+      default: null,
+    },
+  },
+  { timestamps: true }
+);
+
+export default mongoose.models.HotelTableReservation || mongoose.model("HotelTableReservation", HotelTableReservationSchema);
