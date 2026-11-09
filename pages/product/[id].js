@@ -15,7 +15,7 @@ import {
 } from "@/lib/productImages";
 import { getReviewSummary } from "@/lib/reviews";
 import ProductBox from "@/components/ProductBox";
-import { getAvailableInventoryQuantity } from "@/lib/inventory";
+import { getAvailableInventoryQuantity } from "@/lib/stockMath";
 import {
   getStorefrontProductById,
   getStorefrontProducts,

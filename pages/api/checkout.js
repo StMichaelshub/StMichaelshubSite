@@ -1,11 +1,16 @@
 import { mongooseConnect } from "@/lib/mongoose";
-import Customer from "@/models/Customer";
 import { buildOrderDraft } from "@/lib/checkout";
 import {
   createReservedOrder,
   releaseExpiredReservations,
   RESERVATION_WINDOW_MINUTES,
 } from "@/lib/orderLifecycle";
+import { createOrderAccessToken } from "@/lib/orderAccess";
+import {
+  assertCanOpenAnotherOrder,
+  buildOrderCustomer,
+  resolveCheckoutCustomer,
+} from "@/lib/checkoutCustomer";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).send("Method not allowed");
@@ -28,25 +33,20 @@ export default async function handler(req, res) {
       });
     }
 
-    const existing = await Customer.findOneAndUpdate(
-      { email: orderDraft.customer.email },
-      { $set: { ...orderDraft.customer, type: "ONLINE" } },
-      {
-        new: true,
-        upsert: true,
-        setDefaultsOnInsert: true,
-      }
-    );
+    await assertCanOpenAnotherOrder(orderDraft.customer.email);
+
+    const storedCustomer = await resolveCheckoutCustomer(req, orderDraft.customer);
 
     const order = await createReservedOrder({
-      customer: existing,
-      customerId: existing._id,
+      customer: buildOrderCustomer(storedCustomer, orderDraft.customer),
+      customerId: storedCustomer._id,
       orderDraft,
     });
 
     return res.status(200).json({
       message: "Order placed",
       orderId: order._id,
+      accessToken: createOrderAccessToken(order._id),
       totals: {
         subtotal: orderDraft.subtotal,
         shippingCost: orderDraft.shippingCost,

@@ -12,7 +12,7 @@ export default function SiteHomePage({ site, featuredProduct, newProducts, catal
         <meta name="description" content={site.heroDescription} />
       </Head>
       <Header siteKey={site.key} />
-      <Featured product={featuredProduct} catalogInsights={catalogInsights} site={site} heroContent={heroContent} />
+      <Featured product={featuredProduct} site={site} heroContent={heroContent} />
       <CampaignBannerStrip heroes={heroContent?.secondaryHeroes || []} site={site} />
       <NewProducts newProducts={newProducts} catalogInsights={catalogInsights} site={site} />
     </div>

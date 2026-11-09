@@ -5,177 +5,128 @@ import Center from "./Center";
 import SocialLinks from "@/components/SocialLinks";
 import { COMPANY_LINKS, POLICY_LINKS, STORE_DETAILS } from "@/lib/storeDetails";
 import {
-  getPublicSiteLinkLabel,
+  PUBLIC_SITE_KEYS,
   getPublicScopedHref,
   getPublicSiteConfig,
+  getPublicSiteLinkLabel,
+  getPublicSitePath,
   inferPublicSiteFromPath,
   normalizePublicSite,
 } from "@/lib/publicSite";
 
+/** Simple footer: who we are, where to go, help pages and how to reach us. */
 export default function Footer() {
   const router = useRouter();
   const activeSiteKey = normalizePublicSite(inferPublicSiteFromPath(router.pathname));
-  const [socialLinks, setSocialLinks] = useState([]);
   const site = getPublicSiteConfig(activeSiteKey);
-  const isHotelSite = site.key === "hotel";
-  const profileLabel = site.key === "hotel" ? "Hotel profile" : "Store profile";
-  const detailsName = site.key === "hotel" ? site.displayName : STORE_DETAILS.businessName;
-  const legalName = site.key === "hotel" ? site.displayName : STORE_DETAILS.businessName;
-  const companyLinks = COMPANY_LINKS.map((link) => ({
-    ...link,
-    href: getPublicScopedHref(activeSiteKey, link.href),
-    label: getPublicSiteLinkLabel(activeSiteKey, link.href, link.label),
-  }));
-  const policyLinks = POLICY_LINKS.map((link) => ({
-    ...link,
-    href: getPublicScopedHref(activeSiteKey, link.href),
-    label: getPublicSiteLinkLabel(activeSiteKey, link.href, link.label),
-  }));
-  const primaryLinks = (site.primaryFooterLinks || []).map((link) => ({
-    ...link,
-    href: link.href === "/" ? "/" : getPublicScopedHref(activeSiteKey, link.href),
-  }));
-  const currentYear = new Date().getFullYear();
+  const isHotelSite = site.key === PUBLIC_SITE_KEYS.HOTEL;
+  const [socialLinks, setSocialLinks] = useState([]);
+
+  const scoped = (links) =>
+    links.map((link) => ({
+      ...link,
+      href: getPublicScopedHref(activeSiteKey, link.href),
+      label: getPublicSiteLinkLabel(activeSiteKey, link.href, link.label),
+    }));
+
+  const browseLinks = [
+    { href: getPublicSitePath(activeSiteKey), label: "Home" },
+    ...scoped((site.navLinks || []).filter((link) => link.href !== "/")),
+  ];
+  const helpLinks = [...scoped(COMPANY_LINKS), ...scoped(POLICY_LINKS)];
+  const otherSiteKey = isHotelSite ? PUBLIC_SITE_KEYS.STORE : PUBLIC_SITE_KEYS.HOTEL;
+  const otherSite = getPublicSiteConfig(otherSiteKey);
+  const legalName = isHotelSite ? site.displayName : STORE_DETAILS.businessName;
 
   useEffect(() => {
     let cancelled = false;
-
-    async function loadSocialLinks() {
-      try {
-        const response = await fetch(`/api/public/social-links?site=${activeSiteKey}`);
-        if (!response.ok) throw new Error("Social links unavailable");
-        const data = await response.json();
-        if (!cancelled) {
-          setSocialLinks(Array.isArray(data.socialLinks) ? data.socialLinks : []);
-        }
-      } catch {
-        if (!cancelled) {
-          setSocialLinks([]);
-        }
-      }
-    }
-
-    loadSocialLinks();
-
+    fetch(`/api/public/social-links?site=${activeSiteKey}`)
+      .then((response) => (response.ok ? response.json() : { socialLinks: [] }))
+      .then((data) => {
+        if (!cancelled) setSocialLinks(Array.isArray(data.socialLinks) ? data.socialLinks : []);
+      })
+      .catch(() => {
+        if (!cancelled) setSocialLinks([]);
+      });
     return () => {
       cancelled = true;
     };
   }, [activeSiteKey]);
 
+  const headingClass = `text-xs font-bold uppercase tracking-[0.22em] ${
+    isHotelSite ? "text-[rgba(245,238,226,0.6)]" : "text-[rgba(18,52,60,0.52)]"
+  }`;
+  const linkClass = `text-sm font-medium transition ${
+    isHotelSite ? "text-[#f5eee2] hover:text-[#f8d78f]" : "text-[var(--foreground-strong)] hover:text-[#8d5a1f]"
+  }`;
+  const mutedClass = isHotelSite ? "hotel-shell-muted" : "store-shell-muted";
+  const accentClass = isHotelSite ? "hotel-footer-accent" : "store-footer-accent";
+
   return (
     <footer className="site-footer">
       <Center>
-        <div className={`${isHotelSite ? "hotel-footer-panel" : "store-footer-panel"} overflow-hidden rounded-[1.75rem] px-4 py-7 sm:rounded-[2rem] sm:px-6 sm:py-8 md:px-8 md:py-9`}>
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.78fr)_minmax(0,0.78fr)_minmax(0,0.9fr)]">
+        <div className={`${isHotelSite ? "hotel-footer-panel" : "store-footer-panel"} rounded-[1.75rem] px-5 py-8 sm:px-8`}>
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1.1fr]">
             <div>
-              <span className={`${isHotelSite ? "hotel-shell-kicker" : "store-tag"} inline-flex rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.28em] shadow-sm`}>
-                {profileLabel}
-              </span>
-              <h2 className={`${isHotelSite ? "text-[#fff1dc]" : "text-[var(--foreground-strong)]"} mt-4 max-w-xl text-[2rem] font-bold leading-tight md:text-[2.4rem]`}>
+              <p className={`text-xl font-bold ${isHotelSite ? "text-[#fff1dc]" : "text-[var(--foreground-strong)]"}`}>
                 {site.displayName}
-              </h2>
-              <p className={`${isHotelSite ? "hotel-shell-muted" : "store-shell-muted"} mt-3 max-w-lg text-sm leading-7 sm:text-base`}>
-                {site.key === "hotel"
-                  ? "A refined hotel presence with rooms, lounge reservations, and direct guest support gathered into one polished footer."
-                  : "Helpful links, store details, and support in one place."}
               </p>
-
-              <div className="mt-4 grid gap-2.5 min-[420px]:grid-cols-2 xl:max-w-md">
-                {companyLinks.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className={`${isHotelSite ? "hotel-footer-link" : "store-footer-link"} w-full justify-center rounded-2xl px-4 py-3 text-sm font-semibold`}
-                  >
-                    {link.label}
-                  </Link>
-                ))}
-              </div>
-
+              <p className={`mt-2 max-w-xs text-sm leading-6 ${mutedClass}`}>{site.tagLine}.</p>
+              <Link
+                href={getPublicSitePath(otherSiteKey)}
+                className={`${isHotelSite ? "hotel-footer-link" : "store-footer-link"} mt-4 rounded-full px-4 py-2 text-sm font-semibold`}
+              >
+                Visit the {otherSite.shortLabel.toLowerCase()} →
+              </Link>
               <SocialLinks links={socialLinks} variant={isHotelSite ? "hotel" : "store"} />
             </div>
 
             <div>
-              <p className={`${isHotelSite ? "text-[rgba(245,238,226,0.64)]" : "text-[rgba(18,52,60,0.52)]"} text-sm font-semibold uppercase tracking-[0.24em]`}>
-                {site.shortLabel} navigation
-              </p>
-              <div className="mt-4 grid gap-2.5 min-[420px]:grid-cols-2 xl:grid-cols-1">
-                {primaryLinks.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className={`${isHotelSite ? "hotel-footer-link" : "store-footer-link"} w-full justify-between rounded-2xl px-4 py-3 text-sm font-medium`}
-                  >
-                    {link.label}
-                  </Link>
+              <p className={headingClass}>{isHotelSite ? "Hotel" : "Shop"}</p>
+              <ul className="mt-3 grid gap-2">
+                {browseLinks.map((link) => (
+                  <li key={link.href}>
+                    <Link href={link.href} className={linkClass}>{link.label}</Link>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
 
             <div>
-              <p className={`${isHotelSite ? "text-[rgba(245,238,226,0.64)]" : "text-[rgba(18,52,60,0.52)]"} text-sm font-semibold uppercase tracking-[0.24em]`}>
-                Policies
-              </p>
-              <div className="mt-4 grid gap-2.5 min-[420px]:grid-cols-2 xl:grid-cols-1">
-                {policyLinks.map((policy) => (
-                  <Link
-                    key={policy.href}
-                    href={policy.href}
-                    className={`${isHotelSite ? "hotel-footer-link" : "store-footer-link"} w-full justify-between rounded-2xl px-4 py-3 text-sm font-medium`}
-                  >
-                    {policy.label}
-                  </Link>
+              <p className={headingClass}>Help</p>
+              <ul className="mt-3 grid gap-2">
+                {helpLinks.map((link) => (
+                  <li key={link.href}>
+                    <Link href={link.href} className={linkClass}>{link.label}</Link>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
 
             <div>
-              <p className={`${isHotelSite ? "text-[rgba(245,238,226,0.64)]" : "text-[rgba(18,52,60,0.52)]"} text-sm font-semibold uppercase tracking-[0.24em]`}>
-                Contact details
-              </p>
-              <div className="mt-4 grid gap-3 min-[460px]:grid-cols-2 xl:grid-cols-1">
-                <div className={`${isHotelSite ? "hotel-shell-card" : "store-shell-card"} rounded-[1.2rem] px-4 py-4 shadow-sm`}>
-                  <p className={`${isHotelSite ? "text-[#fff1dc]" : "text-[var(--foreground-strong)]"} text-sm font-semibold`}>{site.shortLabel} details</p>
-                  <div className={`${isHotelSite ? "hotel-shell-muted" : "store-shell-muted"} mt-3 space-y-2 text-sm leading-7`}>
-                    <p>{detailsName}</p>
-                    <p>{STORE_DETAILS.country}</p>
-                  </div>
-                </div>
-                <div className={`${isHotelSite ? "hotel-shell-card" : "store-shell-card"} rounded-[1.2rem] px-4 py-4 shadow-sm`}>
-                  <p className={`${isHotelSite ? "text-[#fff1dc]" : "text-[var(--foreground-strong)]"} text-sm font-semibold`}>{site.contactPanelTitle || "Reach the team"}</p>
-                  <div className="mt-3 space-y-2 text-sm leading-7">
-                    <Link
-                      href={getPublicScopedHref(activeSiteKey, "/contact")}
-                      className={`${isHotelSite ? "hotel-footer-link" : "store-footer-link"} mb-3 w-full justify-center rounded-2xl px-4 py-3 text-sm font-semibold`}
-                    >
-                      {site.key === "hotel" ? "Contact reservations" : "Contact us"}
-                    </Link>
-                    <a className={`${isHotelSite ? "hotel-footer-accent" : "store-footer-accent"} block break-all`} href={`mailto:${STORE_DETAILS.email}`}>
-                      {STORE_DETAILS.email}
-                    </a>
-                    {STORE_DETAILS.phoneNumbers.map((phoneNumber) => (
-                      <a
-                        key={phoneNumber}
-                        className={`${isHotelSite ? "hotel-footer-accent" : "store-footer-accent"} block`}
-                        href={`tel:${phoneNumber}`}
-                      >
-                        {phoneNumber}
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <p className={headingClass}>Contact</p>
+              <ul className="mt-3 grid gap-2 text-sm">
+                {STORE_DETAILS.phoneNumbers.map((phoneNumber) => (
+                  <li key={phoneNumber}>
+                    <a href={`tel:${phoneNumber}`} className={`${accentClass} font-semibold`}>{phoneNumber}</a>
+                  </li>
+                ))}
+                <li>
+                  <a href={`mailto:${STORE_DETAILS.email}`} className={`${accentClass} break-all font-semibold`}>
+                    {STORE_DETAILS.email}
+                  </a>
+                </li>
+                <li className={mutedClass}>{STORE_DETAILS.country}</li>
+              </ul>
             </div>
           </div>
 
-          <div className={`${isHotelSite ? "hotel-footer-divider text-[rgba(245,238,226,0.68)]" : "theme-divider text-[rgba(18,52,60,0.58)]"} mt-7 flex flex-col gap-3 border-t pt-4 text-sm md:flex-row md:items-center md:justify-between`}>
-            <p className="max-w-xl">© {currentYear} {legalName}.</p>
-            <div className="flex flex-col gap-1 md:items-end md:text-right">
-              <p>Phone: {STORE_DETAILS.phoneNumbers.join(" · ")}</p>
-              <a className={`${isHotelSite ? "hotel-footer-accent" : "store-footer-accent"} break-all`} href={`mailto:${STORE_DETAILS.email}`}>
-                {STORE_DETAILS.email}
-              </a>
-            </div>
+          <div
+            className={`mt-8 border-t pt-4 text-xs ${
+              isHotelSite ? "hotel-footer-divider text-[rgba(245,238,226,0.6)]" : "theme-divider text-[rgba(18,52,60,0.56)]"
+            }`}
+          >
+            © {new Date().getFullYear()} {legalName}. All rights reserved.
           </div>
         </div>
       </Center>

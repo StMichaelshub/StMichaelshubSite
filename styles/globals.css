@@ -766,3 +766,32 @@ h4 {
 }
 
 
+
+/* ------------------------------------------------------------------
+   Navigation overhaul helpers
+------------------------------------------------------------------ */
+
+/* Horizontal chip rows scroll without a visible scrollbar. */
+.chip-scroll {
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.chip-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* The phone tab bar is fixed to the bottom; leave room so it never covers content. */
+@media (max-width: 767px) {
+  .mobile-tabbar {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .site-footer {
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  }
+
+  .app-shell:has(.mobile-tabbar):not(:has(.site-footer)) .site-main {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
+}

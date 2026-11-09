@@ -28,6 +28,8 @@ const customerOtpSchema = new mongoose.Schema(
       required: true,
     },
     consumedAt: Date,
+    // Wrong guesses against this code; it is burned after MAX_OTP_ATTEMPTS.
+    failedAttempts: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

@@ -1,29 +1,20 @@
 import { isMongoConnectionError, mongooseConnect } from "@/lib/mongoose";
-import { releaseExpiredReservations } from "@/lib/orderLifecycle";
-import Order from "@/models/Order";
+import { loadOrderForShopper } from "@/lib/orderReads";
 
+// GET /api/orders/[id]?access=<token> - the order's confirmation link token, or a
+// signed-in customer who owns the order.
 export default async function handler(req, res) {
+  if (req.method !== "GET") {
+    return res.status(405).json({ message: "Method Not Allowed" });
+  }
+
   try {
     await mongooseConnect();
-
-    const { id } = req.query;
-
-    if (req.method !== "GET") {
-      return res.status(405).json({ message: "Method Not Allowed" });
-    }
-
-    await releaseExpiredReservations();
-
-    const order = await Order.findById(id)
-      .populate("customer")
-      .populate("items.productId"); // Ensure this is populated
-    // Populate items.productId to get product details if needed
-
-    if (!order) {
-      return res.status(404).json({ message: "Order not found" });
-    }
-
-    return res.status(200).json(order);
+    const { status, body } = await loadOrderForShopper(req, {
+      id: req.query.id,
+      token: req.query.access,
+    });
+    return res.status(status).json(body);
   } catch (error) {
     console.error("Error fetching order:", error);
 
@@ -33,8 +24,6 @@ export default async function handler(req, res) {
       });
     }
 
-    return res.status(500).json({
-      message: "We could not load this order right now.",
-    });
+    return res.status(500).json({ message: "We could not load this order right now." });
   }
 }

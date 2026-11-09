@@ -62,6 +62,18 @@ npm run build
 npm run test:integration
 ```
 
+## Inventory and POS Integration
+
+The webpage app shares the same MongoDB-backed `Product`, `Order`, `Customer`, and `Transaction` collections used by the inventory admin and point-of-sale systems.
+
+- Checkout creates an online customer order and reserves stock with `reservedQuantity`, so unpaid web orders are visible to inventory/POS without immediately reducing physical quantity.
+- Paystack verification and webhooks finalize the reservation, reduce inventory once, clear reserved stock, and create a POS-compatible `Transaction` with `salesChannel: "ONLINE_STORE"`, `externalId: "order:<orderId>"`, and `sourceOrderId` set to the order id.
+- The transaction bridge is idempotent, so repeated Paystack verification/webhook calls do not create duplicate POS sales or double-deduct stock.
+- Parent/child pack products follow the POS inventory rule: unit sales reduce the parent pack quantity and then re-derive child unit stock.
+- Manual fulfilment remains handled by the inventory admin/POS order endpoints. Those systems can process or deliver reserved web orders and will skip stock deduction when `inventoryFinalizedBy` shows that Paystack already finalized the inventory.
+
+Hotel reservation flows remain separate from the store checkout and stock/POS integration.
+
 ## Notes
 
 - The storefront includes seeded catalog fallback behavior for preview resilience when MongoDB is unavailable.

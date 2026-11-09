@@ -40,7 +40,7 @@ export default function OrderConfirmationPage() {
   const router = useRouter();
   const siteKey = normalizePublicSite(inferPublicSiteFromPath(router.pathname));
   const site = getPublicSiteConfig(siteKey);
-  const { id } = router.query;
+  const { id, access } = router.query;
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -55,7 +55,7 @@ export default function OrderConfirmationPage() {
 
     axios
       .get("/api/orders", {
-        params: { id },
+        params: { id, ...(typeof access === "string" && access ? { access } : {}) },
       })
       .then((response) => {
         if (cancelled) {
@@ -82,7 +82,7 @@ export default function OrderConfirmationPage() {
     return () => {
       cancelled = true;
     };
-  }, [clearCart, id, router.isReady]);
+  }, [access, clearCart, id, router.isReady]);
 
   if (loading) {
     return (

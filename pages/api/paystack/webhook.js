@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { mongooseConnect } from "@/lib/mongoose";
-import { finalizeOrderPayment } from "@/lib/orderLifecycle";
+import { finalizeOrderPayment, flagPaymentForReview } from "@/lib/orderLifecycle";
 
 export const config = {
   api: {
@@ -33,7 +33,9 @@ export default async function handler(req, res) {
     .update(rawBody)
     .digest("hex");
 
-  if (signature !== req.headers["x-paystack-signature"]) {
+  const received = Buffer.from(String(req.headers["x-paystack-signature"] || ""));
+  const expected = Buffer.from(signature);
+  if (received.length !== expected.length || !crypto.timingSafeEqual(received, expected)) {
     return res.status(401).json({ message: "Invalid webhook signature" });
   }
 
@@ -42,7 +44,14 @@ export default async function handler(req, res) {
 
   if (event.event === "charge.success") {
     const orderId = event.data?.metadata?.orderId;
-    if (orderId) {
+    if (event.data?.currency && event.data.currency !== "NGN") {
+      await flagPaymentForReview({
+        orderId,
+        reference: event.data.reference,
+        amountInKobo: event.data.amount,
+        reason: `Payment made in ${event.data.currency}, not NGN`,
+      });
+    } else if (orderId) {
       try {
         await finalizeOrderPayment({
           orderId,
@@ -52,7 +61,8 @@ export default async function handler(req, res) {
           paymentChannel: "paystack-webhook",
         });
       } catch (error) {
-        if (![404, 409].includes(error.statusCode)) {
+        // 400/404/409 are already flagged for review on the order; anything else is unexpected.
+        if (![400, 404, 409].includes(error.statusCode)) {
           console.error("Paystack webhook finalization error:", error);
         }
       }

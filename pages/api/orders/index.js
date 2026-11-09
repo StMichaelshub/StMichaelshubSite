@@ -1,4 +1,3 @@
-import Customer from "@/models/Customer";
 import { isMongoConnectionError, mongooseConnect } from "@/lib/mongoose";
 import { buildOrderDraft } from "@/lib/checkout";
 import {
@@ -6,30 +5,25 @@ import {
   releaseExpiredReservations,
   RESERVATION_WINDOW_MINUTES,
 } from "@/lib/orderLifecycle";
-import Order from "@/models/Order";
+import { createOrderAccessToken } from "@/lib/orderAccess";
+import { loadOrderForShopper } from "@/lib/orderReads";
+import {
+  assertCanOpenAnotherOrder,
+  buildOrderCustomer,
+  resolveCheckoutCustomer,
+} from "@/lib/checkoutCustomer";
 
 export default async function handler(req, res) {
   try {
     await mongooseConnect();
 
     if (req.method === "GET") {
-      const { id } = req.query;
-
-      if (!id || Array.isArray(id)) {
-        return res.status(400).json({ message: "Order id is required." });
-      }
-
-      await releaseExpiredReservations();
-
-      const order = await Order.findById(id)
-        .populate("customer")
-        .populate("items.productId");
-
-      if (!order) {
-        return res.status(404).json({ message: "Order not found" });
-      }
-
-      return res.status(200).json(order);
+      // GET /api/orders?id=...&access=... (used by the confirmation page)
+      const { status, body } = await loadOrderForShopper(req, {
+        id: req.query.id,
+        token: req.query.access,
+      });
+      return res.status(status).json(body);
     }
 
     if (req.method !== "POST") {
@@ -38,7 +32,7 @@ export default async function handler(req, res) {
 
     await releaseExpiredReservations();
 
-    const { customer, cartProducts, siteKey } = req.body;
+    const { customer, cartProducts, siteKey } = req.body || {};
     const orderDraft = await buildOrderDraft({ customer, cartProducts, siteKey });
 
     if (orderDraft.errors?.length) {
@@ -48,25 +42,20 @@ export default async function handler(req, res) {
       });
     }
 
-    const existingCustomer = await Customer.findOneAndUpdate(
-      { email: orderDraft.customer.email },
-      { $set: { ...orderDraft.customer, type: "ONLINE" } },
-      {
-        new: true,
-        upsert: true,
-        setDefaultsOnInsert: true,
-      }
-    );
+    await assertCanOpenAnotherOrder(orderDraft.customer.email);
+
+    const storedCustomer = await resolveCheckoutCustomer(req, orderDraft.customer);
 
     const newOrder = await createReservedOrder({
-      customer: existingCustomer,
-      customerId: existingCustomer._id,
+      customer: buildOrderCustomer(storedCustomer, orderDraft.customer),
+      customerId: storedCustomer._id,
       orderDraft,
     });
 
     return res.status(201).json({
       success: true,
       orderId: newOrder._id,
+      accessToken: createOrderAccessToken(newOrder._id),
       totals: {
         subtotal: orderDraft.subtotal,
         shippingCost: orderDraft.shippingCost,
@@ -95,7 +84,7 @@ export default async function handler(req, res) {
 
     console.error("Error creating order:", error);
     return res.status(error.statusCode || 500).json({
-      message: "Error creating order",
+      message: error.statusCode ? error.message : "Error creating order",
       error: error.message,
     });
   }

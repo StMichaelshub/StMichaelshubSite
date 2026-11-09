@@ -12,12 +12,14 @@ export async function getServerSideProps() {
   try {
     const siteKey = PUBLIC_SITE_KEYS.STORE;
     const featuredProductId = process.env.FEATURED_PRODUCT_ID;
-    const [resolvedFeaturedProduct, resolvedNewProducts, heroContent] = await Promise.all([
+    const [resolvedFeaturedProduct, allProducts, heroContent] = await Promise.all([
       getStorefrontProductById(featuredProductId, { fallbackToLatest: true, site: siteKey }),
-      getStorefrontProducts({ limit: 12, site: siteKey }),
+      getStorefrontProducts({ site: siteKey }),
       getHeroContentForSite(siteKey),
     ]);
-    const catalogInsights = getCatalogInsights(resolvedNewProducts);
+    // Category counts come from the whole catalogue so they match the categories page.
+    const catalogInsights = getCatalogInsights(allProducts);
+    const resolvedNewProducts = allProducts.slice(0, 12);
 
     return {
       props: {

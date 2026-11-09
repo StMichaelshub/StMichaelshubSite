@@ -2,7 +2,7 @@
 
 import { mongooseConnect } from "@/lib/mongoose";
 import axios from "axios";
-import { finalizeOrderPayment } from "@/lib/orderLifecycle";
+import { finalizeOrderPayment, flagPaymentForReview } from "@/lib/orderLifecycle";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -16,16 +16,16 @@ export default async function handler(req, res) {
 
   await mongooseConnect();
 
-  const { reference } = req.body;
+  const { reference } = req.body || {};
 
-  if (!reference) {
+  if (typeof reference !== "string" || !reference.trim()) {
     return res.status(400).json({ error: "Missing reference" });
   }
 
   try {
     // Verify payment with Paystack
     const response = await axios.get(
-      `https://api.paystack.co/transaction/verify/${reference}`,
+      `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference.trim())}`,
       {
         headers: {
           Authorization: `Bearer ${secretKey}`,
@@ -41,6 +41,16 @@ export default async function handler(req, res) {
     const orderId = data.metadata?.orderId;
     if (!orderId) {
       return res.status(400).json({ error: "Missing order metadata" });
+    }
+
+    if (data.currency && data.currency !== "NGN") {
+      await flagPaymentForReview({
+        orderId,
+        reference: data.reference,
+        amountInKobo: data.amount,
+        reason: `Payment made in ${data.currency}, not NGN`,
+      });
+      return res.status(400).json({ error: "Payment currency is not supported. Our team will contact you." });
     }
 
     const result = await finalizeOrderPayment({

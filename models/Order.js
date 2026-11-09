@@ -70,7 +70,7 @@ const OrderSchema = new mongoose.Schema(
     paymentChannel: { type: String, default: "manual-entry" },
     reservationStatus: {
       type: String,
-      enum: ["active", "releasing", "released", "finalizing", "finalized"],
+      enum: ["active", "releasing", "released", "finalizing", "finalized", null],
       default: "active",
     },
     reservationExpiresAt: Date,
@@ -78,6 +78,13 @@ const OrderSchema = new mongoose.Schema(
     reservationReleasedAt: Date,
     finalizedAt: Date,
     cancellationReason: String,
+    // Set when Paystack confirms a payment the order could not accept automatically
+    // (e.g. the reservation had already expired). Staff must check these orders.
+    paymentReviewRequired: { type: Boolean, default: false, index: true },
+    paymentReviewReason: { type: String, default: "" },
+    paymentReviewReference: { type: String, default: "" },
+    paymentReviewAmount: { type: Number, default: 0 },
+    paymentReviewAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

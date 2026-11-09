@@ -10,7 +10,7 @@ import Center from "@/components/Center";
 import axios from "axios";
 import { getPrimaryProductImage } from "@/lib/productImages";
 import { SUPPORTED_SHIPPING_DESTINATIONS } from "@/lib/shipping";
-import { getAvailableInventoryQuantity } from "@/lib/inventory";
+import { getAvailableInventoryQuantity } from "@/lib/stockMath";
 import { useRouter } from "next/router";
 import {
   getPublicSiteConfig,
@@ -208,7 +208,7 @@ export default function CartPage() {
         siteKey,
       });
 
-      const { orderId } = orderRes.data;
+      const { orderId, accessToken } = orderRes.data;
 
       if (!orderRes.data.success) {
         setCheckoutError("Failed to save your order.");
@@ -216,7 +216,13 @@ export default function CartPage() {
         return;
       }
 
-      router.push(getPublicScopedHref(siteKey, `/checkout/order-confirmation/${orderId}`));
+      // The access token keeps the confirmation page private to whoever placed the order.
+      router.push(
+        getPublicScopedHref(
+          siteKey,
+          `/checkout/order-confirmation/${orderId}${accessToken ? `?access=${encodeURIComponent(accessToken)}` : ""}`
+        )
+      );
     } catch (error) {
       setCheckoutError(
         error.response?.data?.message ||

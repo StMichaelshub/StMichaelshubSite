@@ -1,4 +1,5 @@
 import { mongooseConnect } from "@/lib/mongoose";
+import { PUBLIC_PRODUCT_SELECT } from "@/lib/orderAccess";
 import Order from "@/models/Order";
 import { requireAuthenticatedCustomer } from "@/lib/customerAuth";
 import { releaseExpiredReservations } from "@/lib/orderLifecycle";
@@ -19,7 +20,7 @@ export default async function handler(req, res) {
 
     const orders = await Order.find({ customer: customer._id })
       .sort({ createdAt: -1 })
-      .populate("items.productId");
+      .populate({ path: "items.productId", select: PUBLIC_PRODUCT_SELECT });
 
     return res.status(200).json(orders);
   } catch (error) {
